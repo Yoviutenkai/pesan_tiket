@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#10b981"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="600" fill="url(#g)"/>
+  <circle cx="680" cy="420" r="160" fill="#22d3ee" opacity="0.2"/>
+  <circle cx="260" cy="170" r="120" fill="#fbbf24" opacity="0.2"/>
+  <text x="80" y="120" fill="#ffffff" font-size="42" font-family="Sora, Arial, sans-serif">Art Week</text>
+  <text x="80" y="175" fill="#bbf7d0" font-size="20" font-family="Sora, Arial, sans-serif">Immersive expo</text>
+</svg>
