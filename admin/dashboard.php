@@ -5,12 +5,12 @@ require_once __DIR__ . '/../components/admin_header.php';
 $eventCount = (int)$pdo->query("SELECT COUNT(*) FROM event")->fetchColumn();
 $ticketSold = (int)$pdo->query("SELECT IFNULL(SUM(tiket_terjual),0) FROM tiket")->fetchColumn();
 $revenue = (float)$pdo->query("SELECT IFNULL(SUM(total_bayar),0) FROM orders WHERE status_pembayaran = 'paid'")->fetchColumn();
-$pending = (int)$pdo->query("SELECT COUNT(*) FROM orders WHERE status_pembayaran = 'pending'")->fetchColumn();
+$pending = (int)$pdo->query("SELECT COUNT(*) FROM payments WHERE status_verifikasi = 'pending'")->fetchColumn();
 $recentOrders = $pdo->query("SELECT o.*, u.nama FROM orders o JOIN users u ON o.id_user = u.id_user ORDER BY o.created_at DESC LIMIT 6")->fetchAll();
 $topEvents = $pdo->query("SELECT e.id_event, e.nama_event, IFNULL(SUM(t.tiket_terjual),0) AS sold FROM event e LEFT JOIN tiket t ON t.id_event = e.id_event GROUP BY e.id_event ORDER BY sold DESC LIMIT 4")->fetchAll();
 $topEvent = $topEvents ? $topEvents[0] : null;
-$paidCount = (int)$pdo->query("SELECT COUNT(*) FROM orders WHERE status_pembayaran = 'paid'")->fetchColumn();
-$cancelCount = (int)$pdo->query("SELECT COUNT(*) FROM orders WHERE status_pembayaran IN ('cancelled','expired')")->fetchColumn();
+$paidCount = (int)$pdo->query("SELECT COUNT(*) FROM payments WHERE status_verifikasi = 'approved'")->fetchColumn();
+$cancelCount = (int)$pdo->query("SELECT COUNT(*) FROM payments WHERE status_verifikasi = 'rejected'")->fetchColumn();
 $totalOrders = max(1, $paidCount + $pending + $cancelCount);
 $pendingPercent = (int)round(($pending / $totalOrders) * 100);
 $paidPercent = (int)round(($paidCount / $totalOrders) * 100);
@@ -161,7 +161,7 @@ $cancelPercent = (int)round(($cancelCount / $totalOrders) * 100);
         </div>
         <div class="progress-line"><span style="width: <?php echo $paidPercent; ?>%;"></span></div>
         <div class="d-flex justify-content-between mb-2 mt-3">
-          <span class="text-muted">Cancelled/Expired</span>
+          <span class="text-muted">Rejected</span>
           <span><?php echo $cancelCount; ?></span>
         </div>
         <div class="progress-line"><span style="width: <?php echo $cancelPercent; ?>%;"></span></div>

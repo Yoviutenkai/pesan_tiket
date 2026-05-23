@@ -15,23 +15,9 @@ if (!$order) {
     redirect('admin/orders.php');
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $statusPembayaran = $_POST['status_pembayaran'] ?? $order['status_pembayaran'];
-    $statusOrder = $_POST['status_order'] ?? $order['status_order'];
-
-    $update = $pdo->prepare("UPDATE orders SET status_pembayaran = :status_p, status_order = :status_o WHERE id_order = :id");
-    $update->execute([
-        'status_p' => $statusPembayaran,
-        'status_o' => $statusOrder,
-        'id' => $orderId
-    ]);
-
-    $order['status_pembayaran'] = $statusPembayaran;
-    $order['status_order'] = $statusOrder;
-
-    flash_set('message', 'Status berhasil diperbarui.');
-    redirect('admin/order_detail.php?id=' . $orderId);
-}
+$paymentStmt = $pdo->prepare("SELECT p.*, u.nama AS verifier FROM payments p LEFT JOIN users u ON u.id_user = p.verified_by WHERE p.id_order = :id LIMIT 1");
+$paymentStmt->execute(['id' => $orderId]);
+$payment = $paymentStmt->fetch();
 
 $details = $pdo->prepare("SELECT od.*, t.nama_tiket FROM order_detail od JOIN tiket t ON od.id_tiket = t.id_tiket WHERE od.id_order = :id");
 $details->execute(['id' => $orderId]);
@@ -62,29 +48,63 @@ $attendeeRows = $attendees->fetchAll();
       <div class="text-muted">Diskon</div>
       <div class="fw-semibold"><?php echo rupiah($order['diskon']); ?></div>
     </div>
+    <div class="col-md-6">
+      <div class="text-muted">Status Pembayaran</div>
+      <?php
+        $statusPay = $order['status_pembayaran'] ?? 'pending';
+        $statusBadge = match ($statusPay) {
+            'paid' => 'bg-success',
+            'rejected' => 'bg-danger',
+            'expired' => 'bg-secondary',
+            default => 'bg-warning'
+        };
+      ?>
+      <div><span class="badge <?php echo $statusBadge; ?>"><?php echo e($statusPay); ?></span></div>
+    </div>
+    <div class="col-md-6">
+      <div class="text-muted">Status Verifikasi</div>
+      <?php
+        $verifStatus = $payment['status_verifikasi'] ?? 'pending';
+        $verifBadge = match ($verifStatus) {
+            'approved' => 'bg-success',
+            'rejected' => 'bg-danger',
+            default => 'bg-warning'
+        };
+      ?>
+      <div><span class="badge <?php echo $verifBadge; ?>"><?php echo e($verifStatus); ?></span></div>
+    </div>
   </div>
-
-  <form method="post" action="<?php echo base_url('admin/order_detail.php?id=' . $orderId); ?>" class="row g-3 mt-2">
-    <div class="col-md-4">
-      <label class="form-label">Status Pembayaran</label>
-      <select class="form-select" name="status_pembayaran">
-        <?php foreach (['pending','paid','cancelled','expired'] as $status): ?>
-          <option value="<?php echo $status; ?>" <?php echo $order['status_pembayaran'] === $status ? 'selected' : ''; ?>><?php echo ucfirst($status); ?></option>
-        <?php endforeach; ?>
-      </select>
+  <div class="row g-3 mt-2">
+    <div class="col-md-6">
+      <div class="card-glass p-3">
+        <h6 class="fw-semibold">Bukti Transfer</h6>
+        <?php if ($payment && $payment['bukti_transfer']): ?>
+          <a href="<?php echo base_url('uploads/payment/' . e($payment['bukti_transfer'])); ?>" target="_blank">
+            <img class="img-fluid rounded" src="<?php echo base_url('uploads/payment/' . e($payment['bukti_transfer'])); ?>" alt="Bukti Transfer">
+          </a>
+        <?php else: ?>
+          <div class="text-muted">Belum ada bukti transfer.</div>
+        <?php endif; ?>
+      </div>
     </div>
-    <div class="col-md-4">
-      <label class="form-label">Status Order</label>
-      <select class="form-select" name="status_order">
-        <?php foreach (['menunggu','diproses','selesai'] as $status): ?>
-          <option value="<?php echo $status; ?>" <?php echo $order['status_order'] === $status ? 'selected' : ''; ?>><?php echo ucfirst($status); ?></option>
-        <?php endforeach; ?>
-      </select>
+    <div class="col-md-6">
+      <div class="card-glass p-3">
+        <h6 class="fw-semibold">Verifikasi Pembayaran</h6>
+        <form method="post" action="<?php echo base_url('admin/approve_payment.php'); ?>" class="d-flex gap-2 mb-2">
+          <input type="hidden" name="order_id" value="<?php echo $orderId; ?>">
+          <button class="btn btn-success" type="submit" <?php echo ($verifStatus === 'approved' || !$payment || !$payment['bukti_transfer']) ? 'disabled' : ''; ?>>Approve</button>
+        </form>
+        <form method="post" action="<?php echo base_url('admin/reject_payment.php'); ?>">
+          <input type="hidden" name="order_id" value="<?php echo $orderId; ?>">
+          <textarea class="form-control mb-2" name="catatan_admin" rows="2" placeholder="Catatan penolakan" <?php echo (!$payment || !$payment['bukti_transfer']) ? 'disabled' : ''; ?>><?php echo e($payment['catatan_admin'] ?? ''); ?></textarea>
+          <button class="btn btn-danger" type="submit" <?php echo ($verifStatus === 'rejected' || !$payment || !$payment['bukti_transfer']) ? 'disabled' : ''; ?>>Reject</button>
+        </form>
+        <?php if ($payment && $payment['verified_by']): ?>
+          <small class="text-muted d-block mt-2">Diverifikasi oleh <?php echo e($payment['verifier'] ?? 'Admin'); ?> pada <?php echo $payment['verified_at'] ? date('d M Y H:i', strtotime($payment['verified_at'])) : '-'; ?></small>
+        <?php endif; ?>
+      </div>
     </div>
-    <div class="col-md-4 d-flex align-items-end">
-      <button class="btn btn-primary" type="submit">Update Status</button>
-    </div>
-  </form>
+  </div>
 
   <div class="table-modern mt-4">
     <table class="table table-borderless align-middle mb-0">

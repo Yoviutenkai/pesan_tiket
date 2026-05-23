@@ -109,15 +109,17 @@ CREATE TABLE attendee (
     FOREIGN KEY (id_order) REFERENCES orders(id_order) ON DELETE CASCADE
 );
 
-CREATE TABLE payment (
+CREATE TABLE payments (
     id_payment INT AUTO_INCREMENT PRIMARY KEY,
     id_order INT,
-    payment_method VARCHAR(100),
-    payment_status ENUM('pending','paid','failed') DEFAULT 'pending',
-    payment_date DATETIME NULL,
-    payment_proof VARCHAR(255),
+    bukti_transfer VARCHAR(255),
+    status_verifikasi ENUM('pending','approved','rejected') DEFAULT 'pending',
+    catatan_admin TEXT,
+    verified_by INT NULL,
+    verified_at DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_order) REFERENCES orders(id_order) ON DELETE CASCADE
+    FOREIGN KEY (id_order) REFERENCES orders(id_order) ON DELETE CASCADE,
+    FOREIGN KEY (verified_by) REFERENCES users(id_user) ON DELETE SET NULL
 );
 
 CREATE TABLE event_gallery (

@@ -7,7 +7,7 @@ if ($orderId <= 0) {
     redirect('user/orders.php');
 }
 
-$stmt = $pdo->prepare("SELECT o.*, p.id_payment FROM orders o JOIN payment p ON o.id_order = p.id_order WHERE o.id_order = :id AND o.id_user = :user LIMIT 1");
+$stmt = $pdo->prepare("SELECT o.*, p.id_payment, p.status_verifikasi, p.bukti_transfer FROM orders o LEFT JOIN payments p ON o.id_order = p.id_order WHERE o.id_order = :id AND o.id_user = :user LIMIT 1");
 $stmt->execute(['id' => $orderId, 'user' => current_user()['id']]);
 $order = $stmt->fetch();
 
@@ -15,14 +15,19 @@ if (!$order) {
     redirect('user/orders.php');
 }
 
-$filename = upload_file('payment_proof', __DIR__ . '/../uploads/payments', ['jpg', 'jpeg', 'png', 'webp']);
+$filename = upload_file('payment_proof', __DIR__ . '/../uploads/payment', ['jpg', 'jpeg', 'png'], 2000000);
 if (!$filename) {
     flash_set('message', 'Upload gagal. Pastikan file gambar valid.');
     redirect('user/order_detail.php?id=' . $orderId);
 }
 
-$update = $pdo->prepare("UPDATE payment SET payment_proof = :proof, payment_status = 'pending', payment_date = NOW() WHERE id_payment = :id");
-$update->execute(['proof' => $filename, 'id' => $order['id_payment']]);
+if ($order['id_payment']) {
+    $update = $pdo->prepare("UPDATE payments SET bukti_transfer = :proof, status_verifikasi = 'pending', catatan_admin = NULL, verified_by = NULL, verified_at = NULL WHERE id_payment = :id");
+    $update->execute(['proof' => $filename, 'id' => $order['id_payment']]);
+} else {
+    $insert = $pdo->prepare("INSERT INTO payments (id_order, bukti_transfer, status_verifikasi, created_at) VALUES (:id_order, :proof, 'pending', NOW())");
+    $insert->execute(['id_order' => $orderId, 'proof' => $filename]);
+}
 
 flash_set('message', 'Bukti pembayaran berhasil diupload.');
 redirect('user/order_detail.php?id=' . $orderId);

@@ -134,20 +134,8 @@ try {
         $voucherUpdate->execute(['id' => $voucherId]);
     }
 
-    $attendeeStmt = $pdo->prepare("INSERT INTO attendee (id_order, kode_tiket, nama_pengunjung, email_pengunjung, no_hp) VALUES (:id_order, :kode_tiket, :nama, :email, :no_hp)");
-    for ($i = 0; $i < $qty; $i++) {
-        $kodeTiket = random_code('TKT', 10);
-        $attendeeStmt->execute([
-            'id_order' => $orderId,
-            'kode_tiket' => $kodeTiket,
-            'nama' => $attendeeName,
-            'email' => $attendeeEmail,
-            'no_hp' => $attendeePhone
-        ]);
-    }
-
-    $paymentStmt = $pdo->prepare("INSERT INTO payment (id_order, payment_method) VALUES (:id_order, :method)");
-    $paymentStmt->execute(['id_order' => $orderId, 'method' => $paymentMethod]);
+    $paymentStmt = $pdo->prepare("INSERT INTO payments (id_order, bukti_transfer, status_verifikasi, created_at) VALUES (:id_order, NULL, 'pending', NOW())");
+    $paymentStmt->execute(['id_order' => $orderId]);
 
     $pdo->commit();
 } catch (Exception $e) {
