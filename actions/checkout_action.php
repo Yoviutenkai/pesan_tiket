@@ -19,53 +19,13 @@ $ticket = null;
 $subtotal = 0;
 $discount = 0;
 $voucherId = null;
-
-if ($voucherCode !== '') {
-    $voucherStmt = $pdo->prepare("SELECT * FROM voucher WHERE kode_voucher = :code AND status_voucher = 'aktif' LIMIT 1");
-    $voucherStmt->execute(['code' => $voucherCode]);
-    $voucher = $voucherStmt->fetch();
-
-    if (!$voucher) {
-        flash_set('message', 'Voucher tidak valid.');
-        redirect('checkout.php?ticket_id=' . $ticketId . '&qty=' . $qty);
-    }
-
-    $today = date('Y-m-d');
-    if ($today < $voucher['tanggal_mulai'] || $today > $voucher['tanggal_expired']) {
-        flash_set('message', 'Voucher sudah expired atau belum berlaku.');
-        redirect('checkout.php?ticket_id=' . $ticketId . '&qty=' . $qty);
-    }
-
-    if ($subtotal < (float)$voucher['minimum_transaksi']) {
-        flash_set('message', 'Minimum transaksi belum terpenuhi.');
-        redirect('checkout.php?ticket_id=' . $ticketId . '&qty=' . $qty);
-    }
-
-    if ((int)$voucher['voucher_digunakan'] >= (int)$voucher['kuota_voucher']) {
-        flash_set('message', 'Voucher sudah habis.');
-        redirect('checkout.php?ticket_id=' . $ticketId . '&qty=' . $qty);
-    }
-
-    if ($voucher['jenis_diskon'] === 'persen') {
-        $discount = $subtotal * ((float)$voucher['nilai_diskon'] / 100);
-        if ((float)$voucher['maksimal_diskon'] > 0) {
-            $discount = min($discount, (float)$voucher['maksimal_diskon']);
-        }
-    } else {
-        $discount = (float)$voucher['nilai_diskon'];
-    }
-
-    $discount = min($discount, $subtotal);
-    $voucherId = $voucher['id_voucher'];
-}
-
-    $adminFee = 0;
-    $total = $subtotal - $discount;
+$adminFee = 0;
+$total = 0;
 
 try {
     $pdo->beginTransaction();
 
-    $ticketStmt = $pdo->prepare("SELECT * FROM tiket WHERE id_tiket = :id FOR UPDATE");
+    $ticketStmt = $pdo->prepare("SELECT t.*, e.status_event FROM tiket t JOIN event e ON e.id_event = t.id_event WHERE t.id_tiket = :id FOR UPDATE");
     $ticketStmt->execute(['id' => $ticketId]);
     $ticket = $ticketStmt->fetch();
 
@@ -73,6 +33,12 @@ try {
         $pdo->rollBack();
         flash_set('message', 'Tiket tidak ditemukan.');
         redirect('events.php');
+    }
+
+    if (!in_array($ticket['status_event'], ['upcoming', 'ongoing'], true)) {
+        $pdo->rollBack();
+        flash_set('message', 'Event tidak tersedia');
+        redirect('event_detail.php?id=' . $ticket['id_event']);
     }
 
     $available = (int)$ticket['kuota'] - (int)$ticket['tiket_terjual'];
@@ -88,6 +54,51 @@ try {
     }
 
     $subtotal = (float)$ticket['harga'] * $qty;
+
+    if ($voucherCode !== '') {
+        $voucherStmt = $pdo->prepare("SELECT * FROM voucher WHERE kode_voucher = :code AND status_voucher = 'aktif' LIMIT 1");
+        $voucherStmt->execute(['code' => $voucherCode]);
+        $voucher = $voucherStmt->fetch();
+
+        if (!$voucher) {
+            $pdo->rollBack();
+            flash_set('message', 'Voucher tidak valid.');
+            redirect('checkout.php?ticket_id=' . $ticketId . '&qty=' . $qty);
+        }
+
+        $today = date('Y-m-d');
+        if ($today < $voucher['tanggal_mulai'] || $today > $voucher['tanggal_expired']) {
+            $pdo->rollBack();
+            flash_set('message', 'Voucher sudah expired atau belum berlaku.');
+            redirect('checkout.php?ticket_id=' . $ticketId . '&qty=' . $qty);
+        }
+
+        if ($subtotal < (float)$voucher['minimum_transaksi']) {
+            $pdo->rollBack();
+            flash_set('message', 'Minimum transaksi belum terpenuhi.');
+            redirect('checkout.php?ticket_id=' . $ticketId . '&qty=' . $qty);
+        }
+
+        if ((int)$voucher['voucher_digunakan'] >= (int)$voucher['kuota_voucher']) {
+            $pdo->rollBack();
+            flash_set('message', 'Voucher sudah habis.');
+            redirect('checkout.php?ticket_id=' . $ticketId . '&qty=' . $qty);
+        }
+
+        if ($voucher['jenis_diskon'] === 'persen') {
+            $discount = $subtotal * ((float)$voucher['nilai_diskon'] / 100);
+            if ((float)$voucher['maksimal_diskon'] > 0) {
+                $discount = min($discount, (float)$voucher['maksimal_diskon']);
+            }
+        } else {
+            $discount = (float)$voucher['nilai_diskon'];
+        }
+
+        $discount = min($discount, $subtotal);
+        $voucherId = $voucher['id_voucher'];
+    }
+
+    $total = $subtotal - $discount + $adminFee;
 
     $kodeOrder = random_code('ORD', 10);
     $orderStmt = $pdo->prepare("INSERT INTO orders (id_user, id_voucher, kode_order, subtotal, diskon, biaya_admin, total_bayar, metode_pembayaran) VALUES (:id_user, :id_voucher, :kode, :subtotal, :diskon, :admin, :total, :metode)");

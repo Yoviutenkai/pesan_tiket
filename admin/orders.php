@@ -2,7 +2,18 @@
 $active = 'admin_orders';
 require_once __DIR__ . '/../components/admin_header.php';
 
-$orders = $pdo->query("SELECT o.*, u.nama, v.kode_voucher FROM orders o JOIN users u ON o.id_user = u.id_user LEFT JOIN voucher v ON o.id_voucher = v.id_voucher ORDER BY o.created_at DESC")->fetchAll();
+$page = max(1, (int)($_GET['page'] ?? 1));
+$perPage = 10;
+$offset = ($page - 1) * $perPage;
+
+$totalRows = (int)$pdo->query("SELECT COUNT(*) FROM orders")->fetchColumn();
+$totalPages = max(1, (int)ceil($totalRows / $perPage));
+
+$listStmt = $pdo->prepare("SELECT o.*, u.nama, v.kode_voucher FROM orders o JOIN users u ON o.id_user = u.id_user LEFT JOIN voucher v ON o.id_voucher = v.id_voucher ORDER BY o.created_at DESC LIMIT :limit OFFSET :offset");
+$listStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+$listStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+$listStmt->execute();
+$orders = $listStmt->fetchAll();
 ?>
 
 <div class="card-glass">
@@ -23,7 +34,7 @@ $orders = $pdo->query("SELECT o.*, u.nama, v.kode_voucher FROM orders o JOIN use
       </thead>
       <tbody>
         <?php if (!$orders): ?>
-          <tr><td colspan="5" class="text-muted">Belum ada transaksi.</td></tr>
+          <tr><td colspan="6" class="text-muted">Belum ada transaksi.</td></tr>
         <?php endif; ?>
         <?php foreach ($orders as $order): ?>
           <tr>
@@ -37,6 +48,18 @@ $orders = $pdo->query("SELECT o.*, u.nama, v.kode_voucher FROM orders o JOIN use
         <?php endforeach; ?>
       </tbody>
     </table>
+  </div>
+  <div class="d-flex justify-content-between align-items-center mt-3">
+    <small class="text-muted">Total: <?php echo $totalRows; ?> transaksi</small>
+    <nav>
+      <ul class="pagination mb-0">
+        <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+          <li class="page-item <?php echo $i === $page ? 'active' : ''; ?>">
+            <a class="page-link" href="<?php echo base_url('admin/orders.php?page=' . $i); ?>"><?php echo $i; ?></a>
+          </li>
+        <?php endfor; ?>
+      </ul>
+    </nav>
   </div>
 </div>
 

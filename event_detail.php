@@ -48,8 +48,23 @@ $tickets = $ticketStmt->fetchAll();
                   <span class="event-chip"><?php echo e($event['kategori']); ?></span>
                   <span class="event-meta"><i class="bi bi-geo"></i> <?php echo e($event['kota']); ?></span>
                 </div>
+                <?php
+                  $statusEvent = $event['status_event'] ?? 'upcoming';
+                  $statusClass = match ($statusEvent) {
+                      'ongoing' => 'bg-success',
+                      'finished' => 'bg-secondary',
+                      'cancelled' => 'bg-danger',
+                      default => 'bg-primary'
+                  };
+                ?>
+                <span class="badge <?php echo $statusClass; ?> mb-2"><?php echo e($statusEvent); ?></span>
                 <h3 class="fw-semibold mb-2"><?php echo e($event['nama_event']); ?></h3>
                 <p class="text-muted mb-3"><?php echo e($event['deskripsi']); ?></p>
+                <?php if ($statusEvent === 'cancelled'): ?>
+                  <div class="alert alert-danger border-0">Event ini dibatalkan.</div>
+                <?php elseif ($statusEvent === 'finished'): ?>
+                  <div class="alert alert-secondary border-0">Event ini sudah selesai.</div>
+                <?php endif; ?>
                 <div class="row g-3">
                   <div class="col-md-6">
                     <div class="card-glow p-3">
@@ -77,6 +92,7 @@ $tickets = $ticketStmt->fetchAll();
             <div class="card-glow p-4">
               <h5 class="fw-semibold">Pilih Tiket</h5>
               <p class="text-muted">Tentukan kategori tiket terbaik untukmu.</p>
+              <?php $eventUnavailable = in_array($statusEvent, ['finished', 'cancelled'], true); ?>
               <?php if (!$tickets): ?>
                 <div class="text-muted">Belum ada tiket untuk event ini.</div>
               <?php else: ?>
@@ -84,6 +100,7 @@ $tickets = $ticketStmt->fetchAll();
                   <?php
                     $available = (int)$ticket['kuota'] - (int)$ticket['tiket_terjual'];
                     $isSoldOut = $available <= 0 || $ticket['status_tiket'] === 'sold_out';
+                    $disableCheckout = $eventUnavailable || $isSoldOut;
                   ?>
                   <div class="border rounded-3 p-3 mb-3" style="border-color: rgba(148,163,184,0.2);">
                     <div class="d-flex justify-content-between align-items-start">
@@ -99,12 +116,15 @@ $tickets = $ticketStmt->fetchAll();
                         <?php if ($isSoldOut): ?>
                           <span class="badge-soldout">SOLD OUT</span>
                         <?php endif; ?>
+                        <?php if ($eventUnavailable && !$isSoldOut): ?>
+                          <span class="badge bg-secondary">Event Tidak Tersedia</span>
+                        <?php endif; ?>
                       </div>
                       <?php if (is_logged_in()): ?>
                         <form class="d-flex gap-2" method="get" action="<?php echo base_url('checkout.php'); ?>">
                           <input type="hidden" name="ticket_id" value="<?php echo (int)$ticket['id_tiket']; ?>">
-                          <input type="number" name="qty" class="form-control form-control-sm" min="1" max="<?php echo $available; ?>" value="1" style="width: 90px;" <?php echo $isSoldOut ? 'disabled' : ''; ?>>
-                          <button class="btn btn-brand btn-sm" type="submit" <?php echo $isSoldOut ? 'disabled' : ''; ?>><?php echo $isSoldOut ? 'Sold Out' : 'Checkout'; ?></button>
+                          <input type="number" name="qty" class="form-control form-control-sm" min="1" max="<?php echo $available; ?>" value="1" style="width: 90px;" <?php echo $disableCheckout ? 'disabled' : ''; ?>>
+                          <button class="btn btn-brand btn-sm" type="submit" <?php echo $disableCheckout ? 'disabled' : ''; ?>><?php echo $disableCheckout ? 'Event Tidak Tersedia' : 'Checkout'; ?></button>
                         </form>
                       <?php else: ?>
                         <a class="btn btn-outline-light btn-sm" href="<?php echo base_url('login.php?return=event_detail.php?id=' . $event['id_event']); ?>">Masuk untuk beli</a>

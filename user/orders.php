@@ -3,8 +3,20 @@ $active = 'user_orders';
 require_once __DIR__ . '/../components/user_header.php';
 
 $userId = current_user()['id'];
-$stmt = $pdo->prepare("SELECT * FROM orders WHERE id_user = :id ORDER BY created_at DESC");
-$stmt->execute(['id' => $userId]);
+$page = max(1, (int)($_GET['page'] ?? 1));
+$perPage = 10;
+$offset = ($page - 1) * $perPage;
+
+$countStmt = $pdo->prepare("SELECT COUNT(*) FROM orders WHERE id_user = :id");
+$countStmt->execute(['id' => $userId]);
+$totalRows = (int)$countStmt->fetchColumn();
+$totalPages = max(1, (int)ceil($totalRows / $perPage));
+
+$stmt = $pdo->prepare("SELECT * FROM orders WHERE id_user = :id ORDER BY created_at DESC LIMIT :limit OFFSET :offset");
+$stmt->bindValue(':id', $userId, PDO::PARAM_INT);
+$stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+$stmt->execute();
 $orders = $stmt->fetchAll();
 ?>
 
@@ -37,6 +49,18 @@ $orders = $stmt->fetchAll();
         <?php endforeach; ?>
       </tbody>
     </table>
+  </div>
+  <div class="d-flex justify-content-between align-items-center mt-3">
+    <small class="text-muted">Total: <?php echo $totalRows; ?> transaksi</small>
+    <nav>
+      <ul class="pagination mb-0">
+        <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+          <li class="page-item <?php echo $i === $page ? 'active' : ''; ?>">
+            <a class="page-link" href="<?php echo base_url('user/orders.php?page=' . $i); ?>"><?php echo $i; ?></a>
+          </li>
+        <?php endfor; ?>
+      </ul>
+    </nav>
   </div>
 </div>
 

@@ -84,6 +84,16 @@ if (!$events) {
                     <span class="event-chip"><?php echo e($event['kategori']); ?></span>
                     <span class="event-meta"><i class="bi bi-geo"></i> <?php echo e($event['kota']); ?></span>
                   </div>
+                  <?php
+                    $statusEvent = $event['status_event'] ?? 'upcoming';
+                    $statusClass = match ($statusEvent) {
+                        'ongoing' => 'bg-success',
+                        'finished' => 'bg-secondary',
+                        'cancelled' => 'bg-danger',
+                        default => 'bg-primary'
+                    };
+                  ?>
+                  <span class="badge <?php echo $statusClass; ?> mb-2"><?php echo e($statusEvent); ?></span>
                   <h5 class="fw-semibold mb-2"><?php echo e($event['nama_event']); ?></h5>
                   <div class="event-meta mb-3">
                     <i class="bi bi-calendar-event"></i>
@@ -94,11 +104,24 @@ if (!$events) {
                     $totalTerjual = (int)($event['total_terjual'] ?? 0);
                     $remaining = $totalKuota - $totalTerjual;
                     $isSoldOut = $totalKuota > 0 && $remaining <= 0;
+                    $isUnavailable = in_array($statusEvent, ['finished', 'cancelled'], true);
                     $detailLink = is_logged_in() ? base_url('event_detail.php?id=' . $event['id_event']) : base_url('login.php?return=event_detail.php?id=' . $event['id_event']);
                     $buttonLabel = is_logged_in() ? 'Pesan Tiket' : 'Masuk untuk beli';
                     $buttonClass = is_logged_in() ? 'btn btn-brand' : 'btn btn-outline-light';
                   ?>
-                  <?php if ($isSoldOut): ?>
+                  <?php if ($statusEvent === 'cancelled'): ?>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <span class="badge bg-danger">Dibatalkan</span>
+                      <span class="event-meta">Event tidak tersedia</span>
+                    </div>
+                    <button class="btn btn-disabled w-100" type="button" disabled>Event Tidak Tersedia</button>
+                  <?php elseif ($statusEvent === 'finished'): ?>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <span class="badge bg-secondary">Selesai</span>
+                      <span class="event-meta">Event tidak tersedia</span>
+                    </div>
+                    <button class="btn btn-disabled w-100" type="button" disabled>Event Tidak Tersedia</button>
+                  <?php elseif ($isSoldOut): ?>
                     <div class="d-flex justify-content-between align-items-center mb-2">
                       <span class="badge-soldout">SOLD OUT</span>
                       <span class="event-meta">Sisa: 0</span>

@@ -4,6 +4,7 @@ require_once __DIR__ . '/../components/admin_header.php';
 
 $id = (int)($_GET['id'] ?? 0);
 $voucher = null;
+$flash = flash_get('message');
 
 if ($id > 0) {
     $stmt = $pdo->prepare("SELECT * FROM voucher WHERE id_voucher = :id");
@@ -12,15 +13,25 @@ if ($id > 0) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $kode = strtoupper(trim($_POST['kode_voucher'] ?? ''));
-    $jenis = $_POST['jenis_diskon'] ?? 'persen';
-    $nilai = (float)($_POST['nilai_diskon'] ?? 0);
-    $min = (float)($_POST['minimum_transaksi'] ?? 0);
-    $maks = (float)($_POST['maksimal_diskon'] ?? 0);
-    $mulai = $_POST['tanggal_mulai'] ?? null;
-    $expired = $_POST['tanggal_expired'] ?? null;
-    $kuota = (int)($_POST['kuota_voucher'] ?? 0);
-    $status = $_POST['status_voucher'] ?? 'aktif';
+  $kode = strtoupper(trim($_POST['kode_voucher'] ?? ''));
+  $jenis = $_POST['jenis_diskon'] ?? 'persen';
+  $nilaiRaw = trim($_POST['nilai_diskon'] ?? '');
+  $minRaw = trim($_POST['minimum_transaksi'] ?? '');
+  $maksRaw = trim($_POST['maksimal_diskon'] ?? '');
+  $mulai = $_POST['tanggal_mulai'] ?? null;
+  $expired = $_POST['tanggal_expired'] ?? null;
+  $kuota = (int)($_POST['kuota_voucher'] ?? 0);
+  $status = $_POST['status_voucher'] ?? 'aktif';
+
+  $nilai = $nilaiRaw === '' ? 0 : (float)$nilaiRaw;
+  $min = $minRaw === '' ? 0 : (float)$minRaw;
+  $maks = $maksRaw === '' ? null : (float)$maksRaw;
+
+  if ($nilai < 0 || $min < 0 || ($maks !== null && $maks < 0)) {
+    flash_set('message', 'Nilai diskon tidak boleh negatif.');
+    $target = $id > 0 ? ('admin/voucher_form.php?id=' . $id) : 'admin/voucher_form.php';
+    redirect($target);
+  }
 
     if ($id > 0) {
         $update = $pdo->prepare("UPDATE voucher SET kode_voucher = :kode, jenis_diskon = :jenis, nilai_diskon = :nilai, minimum_transaksi = :min, maksimal_diskon = :maks, tanggal_mulai = :mulai, tanggal_expired = :expired, kuota_voucher = :kuota, status_voucher = :status WHERE id_voucher = :id");
@@ -57,6 +68,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <div class="card-glass">
   <h5 class="fw-semibold mb-3"><?php echo $id > 0 ? 'Edit Voucher' : 'Tambah Voucher'; ?></h5>
+  <?php if ($flash): ?>
+    <div class="alert alert-warning border-0" role="alert"><?php echo e($flash); ?></div>
+  <?php endif; ?>
   <form method="post">
     <div class="row g-3">
       <div class="col-md-6">
@@ -72,15 +86,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       </div>
       <div class="col-md-6">
         <label class="form-label">Nilai Diskon</label>
-        <input type="number" class="form-control" name="nilai_diskon" value="<?php echo e($voucher['nilai_diskon'] ?? ''); ?>" required>
+        <input type="number" step="0.01" min="0" class="form-control" name="nilai_diskon" value="<?php echo e($voucher['nilai_diskon'] ?? ''); ?>" required>
       </div>
       <div class="col-md-6">
         <label class="form-label">Minimum Transaksi</label>
-        <input type="number" class="form-control" name="minimum_transaksi" value="<?php echo e($voucher['minimum_transaksi'] ?? ''); ?>">
+        <input type="number" step="0.01" min="0" class="form-control" name="minimum_transaksi" value="<?php echo e($voucher['minimum_transaksi'] ?? ''); ?>">
       </div>
       <div class="col-md-6">
         <label class="form-label">Maksimal Diskon</label>
-        <input type="number" class="form-control" name="maksimal_diskon" value="<?php echo e($voucher['maksimal_diskon'] ?? ''); ?>">
+        <input type="number" step="0.01" min="0" class="form-control" name="maksimal_diskon" value="<?php echo e($voucher['maksimal_diskon'] ?? ''); ?>">
       </div>
       <div class="col-md-6">
         <label class="form-label">Kuota</label>
