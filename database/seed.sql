@@ -26,5 +26,3 @@ INSERT INTO voucher (kode_voucher, jenis_diskon, nilai_diskon, minimum_transaksi
 ('FEST50K', 'nominal', 50000, 300000, 50000, '2026-05-01', '2026-12-31', 50, 3, 'aktif');
 
 INSERT INTO testimonial (id_user, isi_testimonial, rating) VALUES
-(2, 'Pengalaman beli tiketnya rapi, cepat, dan elegan.', 5),
-(2, 'Dashboardnya bikin gampang cek semua tiket.', 4);

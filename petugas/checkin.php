@@ -9,7 +9,15 @@ $ticketInfo = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $kode = trim($_POST['kode_tiket'] ?? '');
     if ($kode !== '') {
-        $stmt = $pdo->prepare("SELECT * FROM attendee WHERE kode_tiket = :kode LIMIT 1");
+        $stmt = $pdo->prepare("SELECT a.*, MIN(e.nama_event) AS nama_event, MIN(e.status_event) AS status_event, MIN(e.tanggal_mulai) AS tanggal_mulai, MAX(e.tanggal_selesai) AS tanggal_selesai
+          FROM attendee a
+          JOIN orders o ON o.id_order = a.id_order
+          JOIN order_detail od ON od.id_order = o.id_order
+          JOIN tiket t ON t.id_tiket = od.id_tiket
+          JOIN event e ON e.id_event = t.id_event
+          WHERE a.kode_tiket = :kode
+          GROUP BY a.id_attendee
+          LIMIT 1");
         $stmt->execute(['kode' => $kode]);
         $ticketInfo = $stmt->fetch();
 
@@ -19,6 +27,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($ticketInfo['status_checkin'] === 'sudah_hadir') {
             $message = 'Tiket sudah digunakan.';
             $type = 'warning';
+        } elseif (in_array($ticketInfo['status_event'] ?? '', ['cancelled', 'finished'], true)) {
+          $message = 'Event sudah berakhir atau dibatalkan.';
+          $type = 'danger';
+        } elseif (!empty($ticketInfo['tanggal_mulai']) && strtotime($ticketInfo['tanggal_mulai']) > time()) {
+          $message = 'Check-in belum dibuka. Event mulai pada ' . date('d M Y H:i', strtotime($ticketInfo['tanggal_mulai'])) . '.';
+          $type = 'warning';
         } else {
             $update = $pdo->prepare("UPDATE attendee SET status_checkin = 'sudah_hadir', waktu_checkin = NOW() WHERE id_attendee = :id");
             $update->execute(['id' => $ticketInfo['id_attendee']]);
